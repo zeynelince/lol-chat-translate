@@ -33,7 +33,6 @@ def ensure_tesseract():
         "Tesseract bulunamadı. Windows'ta genelde "
         r"C:\Program Files\Tesseract-OCR\ altına kurulur."
     )
-
 def preprocess(img: Image.Image) -> Image.Image:
     # Basit ve hızlı ön işleme: gri + autocontrast + ikili eşik
     if img.mode != "L":
@@ -379,6 +378,7 @@ def split_header_message(segment: str) -> tuple[str, str] | None:
 def live_capture_loop(bbox: tuple[int,int,int,int], ocr_lang: str, dest: str):
     import mss
     from tkinter.scrolledtext import ScrolledText
+    from collections import deque
 
     left, top, width, height = bbox
     monitor = {"left": left, "top": top, "width": width, "height": height}
@@ -388,6 +388,7 @@ def live_capture_loop(bbox: tuple[int,int,int,int], ocr_lang: str, dest: str):
     root.title("Seçili Bölge Önizleme")
     panel = tk.Label(root)
     panel.pack()
+    
 
     # Pencereyi seçili alanın DIŞINA koy (kendi penceresini yakalamasın)
     px = max(5, left - min(700, width))
@@ -427,6 +428,32 @@ def live_capture_loop(bbox: tuple[int,int,int,int], ocr_lang: str, dest: str):
     MIN_TRANSLATE_GAP = 0.8
     last_tr_ts = 0.0
     MAX_LINES_KEEP = 500
+    pending: deque[tuple[str, str, int | None]] = deque()  # (header, message, ts_sec)
+    recent_keys = deque(maxlen=200)  # (header, message) (isteğe bağlı, kalsın)
+    recent_set: set[tuple[str, str]] = set()
+
+    # ZAMAN DAMGASI FİLTRESİ
+    SEEN_TS_MAX = 500
+    seen_ts = deque()        # FIFO
+    seen_ts_set = set()
+
+    def remember_ts(ts: int) -> bool:
+        """Yeni ts ise True döner ve kaydeder; daha önce varsa False döner."""
+        if ts in seen_ts_set:
+            return False
+        seen_ts.append(ts)
+        seen_ts_set.add(ts)
+        if len(seen_ts) > SEEN_TS_MAX:
+            old = seen_ts.popleft()
+            seen_ts_set.discard(old)
+        return True
+
+    def remember_key(key):
+        recent_keys.append(key)
+        recent_set.add(key)
+        while len(recent_keys) > recent_keys.maxlen:
+            old = recent_keys.popleft()
+            recent_set.discard(old)
 
     def trim_if_needed():
         # Çok uzarsa baştan kırp (performans için)
