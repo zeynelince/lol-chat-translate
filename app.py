@@ -13,6 +13,7 @@ from PIL import Image, ImageOps, ImageTk
 import mss
 from deep_translator import GoogleTranslator
 
+# ---------- Ayarlar ----------
 LANG_OCR   = "eng"   # Tesseract OCR dili: "eng", "tur", "jpn" ...
 DEST_LANG  = "tr"    # Çeviri dili
 REFRESH_MS = 300     # ms cinsinden tarama aralığı (~3 FPS)
